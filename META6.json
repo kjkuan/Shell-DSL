@@ -1,0 +1,33 @@
+{
+  "auth" : "Jack Kuan (kjkuan@gmail.com)",
+  "authors" : [
+    "Jack Kuan"
+  ],
+  "build-depends" : [ ],
+  "depends" : [
+    "Fcntl"
+  ],
+  "description" : "Run commands and pipe from one to another like you would in a command shell.",
+  "license" : "Artistic-2.0",
+  "name" : "Shell::DSL",
+  "perl" : "6.d",
+  "provides" : {
+    "IO::PipeFD" : "lib/IO/PipeFD.rakumod",
+    "Shell::DSL" : "lib/Shell/DSL.rakumod"
+  },
+  "resources" : [
+    "pipe-exec.raku",
+    "pipe-exec.sh"
+  ],
+  "source-url" : "",
+  "tags" : [
+    "shell",
+    "DSL",
+    "command",
+    "pipeline",
+    "pipe",
+    "run"
+  ],
+  "test-depends" : [ ],
+  "version" : "0.0.1"
+}
