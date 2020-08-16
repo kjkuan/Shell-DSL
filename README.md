@@ -4,11 +4,22 @@ NAME
 
 DESCRIPTION
 ===========
-`Shell::DSL` is a module that provides a shell-like experience for running external commands and redirecting their I/O's. A command's standard output can be captured, and commands can be connected to form a pipeline easily.
+`Shell::DSL` is a module that provides a shell-like experience for running
+external commands and redirecting their I/O's. A command's standard output can
+be captured, and commands can be connected to form a pipeline easily.
 
 **NOTE:** This module is not thread-safe.
 
-**Caveat:** Although an implementation detail, this module currently depends on Bash to connect the pipes and to set up user specified I/O redirections for sub processes.
+**Caveat:** I've only tested it on Ubuntu, but it should work on any Unix-like
+system with the right native library dependencies; however, the module
+currently depends on the `Fcntl` Raku module, which needs to be installed
+manually with:
+
+    zef install -f Fnctl https://github.com/jonathanstowe/perl6-Fcntl
+
+Moreover, although an implementation detail, this module currently depends on
+Bash to connect the pipes and to set up user specified I/O redirections for sub
+processes.
 
 SYNOPSIS
 ========
