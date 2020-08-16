@@ -21,6 +21,9 @@ shell {
     # Command arguments can be passed to the command as positional arguments.
     .ls: '-la'; 
 
+    # You can also pass the arguments to a command by indexing it like a hash.
+    .ls<-l -a>;
+
     # Any named arguments will be set as environment variables for the command.
     .bash: «-c 'echo $GREETING'» , :GREETING<Hello>;
 

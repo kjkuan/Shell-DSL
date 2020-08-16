@@ -19,14 +19,14 @@ to connect the pipes and to set up user specified I/O redirections for sub proce
 use Shell::DSL;
 my @words;
 shell :!pipefail, {
-    .curl(<-fsSL https://en.wikipedia.org/wiki/Special:Random>)
+    .curl<-fsSL https://en.wikipedia.org/wiki/Special:Random>
       |> .xmllint(«--html --xpath '//*[name()!="script"]/text()' -», (:w2</dev/null>))
-      |> .tr(<-cs A-Za-z  \n>)
-      |> .tr(<A-Z a-z>)
+      |> .tr<-cs A-Za-z  \n>
+      |> .tr<A-Z a-z>
       |> .sort
-      |> .uniq('-c')
-      |> .sort('-rn')
-      |> .head('-30')
+      |> .uniq<-c>
+      |> .sort<-rn>
+      |> .head<-30>
       |> pb({
           for .lines {
               my $match = $_ ~~ /\s* \d+ ' ' (\w+)$/;
@@ -147,13 +147,29 @@ class Command does Callable is export {
     method new(*@ (Str:D $path, *@args), :@redirects=()) {
         self.bless(:$path, :@args, :@redirects)
     }
-    submethod BUILD(:$!path, :@!args, :@redirects) {
-        %!envs := %*ENV.Map;
+    submethod BUILD(:$!path, :@args, :@redirects) {
+        @!args = @args».Str;
         @!redirects := @redirects.List;
+        %!envs := %*ENV.Map;
+    }
+
+    method !rc is rw { $!rc }
+    method !pid is rw { $!pid }
+    method !async-proc is rw { $!async-proc }
+    method !pipeline is rw { $!pipeline }
+    method clone(*%_) {
+        my $clone = callwith(|%_);
+        $clone!rc = Nil;
+        $clone!pid = Nil;
+        $clone!pipeline = Nil;
+        $clone!async-proc = Nil;
+        return $clone;
     }
 
     method gist(--> Str:D) { self.defined ?? "$!path @!args[*]" !! nextsame }
     method raku(--> Str:D) { self.defined ?? 'Command.new' ~ ($!path, |@!args).raku !! self.^name }
+
+    method args { return @!args.List }
 
     method !track-last-status(Proc:D $proc) {
         $!pid = $proc.pid;
@@ -273,10 +289,14 @@ class PipeBlock { ... }
 subset Pipeable of Any is export where Command|PipeBlock;
 #FIXME: Should Pipeable be a role instead?
 
+#| A `Pipeline` is a `Command` made up of a sequence of `Command`'s connected
+#| via pipes (see `man 2 pipe`).
+#|
 class Pipeline is Command does Positional is export {
     has @!parts is required of Pipeable:D handles('elems', 'AT-POS', 'EXISTS-POS');
     has @!output;  # pipeline output
 
+    #| You should create a `Pipeline:D` via the `|>` operator instead of calling `.new`.
     method new(*@parts where { $_ > 1 && $_.all ~~ Pipeable:D }) {
         for @parts {
             .started && die "Command: {$_} has been run! It can't be part of a pipeline.";
@@ -286,9 +306,13 @@ class Pipeline is Command does Positional is export {
 
     submethod BUILD(:@!parts) { .add-to-pipeline(self) for @!parts }
 
+    #FIXME: not sure how cloning a PipeBlock would work
+    method clone(*%_) { nextwith(:parts(@!parts».clone), |%_) }
+
     method gist(--> Str:D) { self.defined ?? @!parts».gist.join(' |> ') !! nextsame }
     method raku(--> Str:D) { self.defined ?? @!parts».raku.join(' |> ') !! self.^name }
 
+    #| Run the pipeline and wait for it to exit.
     method run(Bool :$capture, Bool :$merge --> Command:D) {
         # Turn "{ c1 } | c2 | c3 | c4 | { c5 }" into:  [c1, [c2, c3, c4], c5]
         # where "{ c1 }" and "{ c5 }" are PipeBlock's and c2, c3, and c4 are Command's.
@@ -376,6 +400,8 @@ class Pipeline is Command does Positional is export {
         return self;
     }
 
+    #| Run the pipeline, wait for it to exit and capture its STDOUT, which is
+    #| that of the last command in the pipeline.
     method capture(
         Bool:D :$chomp=True,
         Bool:D :$check=True,
@@ -388,8 +414,18 @@ class Pipeline is Command does Positional is export {
         return $chomp ?? $output.chomp !! $output;
     }
 
+    # Return the exit status of the pipeline, which is that of the last command in the pipeline.
     method rc(--> Int:D) { return @!parts[*-1].rc }
 
+    #| Run the pipeline if not already run, wait for it to exit, and return
+    #| `True` if the execution is successful; return `False` otherwise.
+    #|
+    #| When the `:pipefail` option of `&shell` is `True` (the default), a
+    #| pipeline execution is successful only if ALL commands in the pipeline
+    #| exit with a `0` status code.
+    #|
+    #| When `:pipefail` is `False`, a pipeline execution is successful as long
+    #| as the exit status of the last command in the pipeline is 0.
     method Bool(--> Bool:D) {
         my $self = self.run if not self.started;
         if $*PIPEFAIL // True {
@@ -398,6 +434,9 @@ class Pipeline is Command does Positional is export {
             return ! self.rc;
         }
     }
+
+    #| Run the pipeline if not already run, wait for it to exit, and return its
+    #| exit status, which is that of the last command in the pipeline.
     method Numeric(--> Int:D) {
         my $self = self.run if not self.started;
         return @!parts[*-1].Numeric;
@@ -417,8 +456,7 @@ class Pipeline is Command does Positional is export {
 ## ----------------------------------------------------------------------
 }
 
-#| A block or callable that can be used in a pipeline.
-#|
+#| A block or callable that can be used in a `Pipeline` as a filter.
 class PipeBlock is export {
     has &.block;
     has $.input;
@@ -429,6 +467,7 @@ class PipeBlock is export {
     has $.encoding of Str;
     has $.chomp of Bool;
 
+    #| You should create a `PipeBlock:D` by calling the `&pb` sub with a `Block`.
     method new(&block, Bool :$bin, Str :$enc, Bool:D :$chomp=True) {
         self.bless(:&block, :$bin, :$enc, :$chomp);
     }
@@ -587,7 +626,6 @@ class CommandShell is Mu is export {
     method FALLBACK(Str:D $path, *@args, *%envs) {
         my @redirects = @args.grep: Pair;
         @args = @args.grep(* !~~ Pair) if @redirects;
-        @args := @args».Str;
         temp $*CWD = $!dir;
         temp %*ENV = %!env, %envs;
         Command.new($path, @args, :@redirects);
@@ -601,6 +639,12 @@ multi sub shell(&block, Bool:D :$pipefail=True, |c) is export {
 }
 sub pb(&block --> PipeBlock:D) is export { PipeBlock.new(&block) }
 sub infix:«|>»(*@blocks --> Pipeline:D) is assoc<list> is export { Pipeline.new(@blocks) }
+
+multi sub postcircumfix:<{ }>(Command:D $cmd, $arg --> Command:D) is export { $cmd.clone(args => $arg) }
+multi sub postcircumfix:<{ }>(Command:D $cmd, @args --> Command:D) is export { $cmd.clone(args => @args) }
+multi sub postcircumfix:<{ }>(Pipeline:D $cmd, @args --> Command:D) is export { !!! }
+multi sub postcircumfix:<{ }>(Pipeline:D $cmd, @args --> Command:D) is export { !!! }
+
 
 
 # vim: syntax=perl6 ft=perl6

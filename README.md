@@ -10,7 +10,7 @@ DESCRIPTION
 
 **NOTE:** This module is not thread-safe.
 
-**Caveat:** Although an implementation detail, this module currently depends on Bash for setting up I/O redirections for sub processes.
+**Caveat:** Although an implementation detail, this module currently depends on Bash to connect the pipes and to set up user specified I/O redirections for sub processes.
 
 SYNOPSIS
 ========
@@ -21,14 +21,14 @@ SYNOPSIS
 use Shell::DSL;
 my @words;
 shell :!pipefail, {
-    .curl(<-fsSL https://en.wikipedia.org/wiki/Special:Random>)
+    .curl<-fsSL https://en.wikipedia.org/wiki/Special:Random>
       |> .xmllint(«--html --xpath '//*[name()!="script"]/text()' -», (:w2</dev/null>))
-      |> .tr(<-cs A-Za-z  \n>)
-      |> .tr(<A-Z a-z>)
+      |> .tr<-cs A-Za-z  \n>
+      |> .tr<A-Z a-z>
       |> .sort
-      |> .uniq('-c')
-      |> .sort('-rn')
-      |> .head('-30')
+      |> .uniq<-c>
+      |> .sort<-rn>
+      |> .head<-30>
       |> pb({
           for .lines {
               my $match = $_ ~~ /\s* \d+ ' ' (\w+)$/;
@@ -136,10 +136,77 @@ method sink() returns Nil
 
 Run the command if not already run. Throws a `CommandError` exception if the command failed.
 
+class Shell::DSL::Pipeline
+--------------------------
+
+A `Pipeline` is a `Command` made up of a sequence of `Command`'s connected via pipes (see `man 2 pipe`).
+
+### method new
+
+```perl6
+method new(
+    *@parts where { ... }
+) returns Mu
+```
+
+You should create a `Pipeline:D` via the `|>` operator instead of calling `.new`.
+
+### method run
+
+```perl6
+method run(
+    Bool :$capture,
+    Bool :$merge
+) returns Shell::DSL::Command:D
+```
+
+Run the pipeline and wait for it to exit.
+
+### method capture
+
+```perl6
+method capture(
+    Bool:D :$chomp = Bool::True,
+    Bool:D :$check = Bool::True,
+    Str:D :$encoding = "utf8"
+) returns Str:D
+```
+
+Run the pipeline, wait for it to exit and capture its STDOUT, which is that of the last command in the pipeline.
+
+### method Bool
+
+```perl6
+method Bool() returns Bool
+```
+
+Run the pipeline if not already run, wait for it to exit, and return `True` if the execution is successful; return `False` otherwise. When the `:pipefail` option of `&shell` is `True` (the default), a pipeline execution is successful only if ALL commands in the pipeline exit with a `0` status code. When `:pipefail` is `False`, a pipeline execution is successful as long as the exit status of the last command in the pipeline is 0.
+
+### method Numeric
+
+```perl6
+method Numeric() returns Int:D
+```
+
+Run the pipeline if not already run, wait for it to exit, and return its exit status, which is that of the last command in the pipeline.
+
 class pb { … }
 --------------
 
-A block or callable that can be used in a pipeline.
+A block or callable that can be used in a `Pipeline` as a filter.
+
+### method new
+
+```perl6
+method new(
+    &block,
+    Bool :$bin,
+    Str :$enc,
+    Bool:D :$chomp = Bool::True
+) returns Mu
+```
+
+You should create a `PipeBlock:D` by calling the `&pb` sub with a `Block`.
 
 ### method cd
 
