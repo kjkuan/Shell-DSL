@@ -24,9 +24,16 @@ if [[ $CMD_INDEX != ${#PIPE_FDS[*]} ]]; then
     eval "exec 1>&${fds#*,}"
 fi
 
+# User specified I/O redirections
+if [[ $REDIRECTS ]]; then
+    eval exec "$REDIRECTS"
+fi
+unset -v REDIRECTS
+
 # Close the FDs now that we have done the redirections.
 for fds in ${PIPE_FDS[*]}; do
     eval "exec ${fds%,*}>&- ${fds#*,}>&-"
 done
+unset -v PIPE_FDS CMD_INDEX fds
     
 exec "$@"

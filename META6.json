@@ -7,7 +7,7 @@
   "depends" : [
     "Fcntl"
   ],
-  "description" : "Run commands and pipe from one to another like you would in a command shell.",
+  "description" : "Run commands and pipe from one to another like you would in a Unix command line shell.",
   "license" : "Artistic-2.0",
   "name" : "Shell::DSL",
   "perl" : "6.d",
@@ -16,8 +16,8 @@
     "Shell::DSL" : "lib/Shell/DSL.rakumod"
   },
   "resources" : [
-    "pipe-exec.raku",
-    "pipe-exec.sh"
+    "pipe-exec.sh",
+    "cmd-exec.sh"
   ],
   "source-url" : "",
   "tags" : [

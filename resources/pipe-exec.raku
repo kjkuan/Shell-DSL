@@ -1,8 +1,9 @@
 #!/usr/bin/env raku
 #
-# This is implemented after implementing pipe-exec.sh to see how well it will work.
-# Too bad, it's way slower than pipe-exec.sh, so it's not used but only included as a proof
-# of concept.
+# This is implemented after implementing pipe-exec.sh to see how well the idea
+# works with a Raku implementation. Too bad, it's way slower than pipe-exec.sh,
+# so currently it's not used and maintained; however, it's included as a proof
+# of concept; perhaps one day it will be useful.
 #
 use NativeCall;
 use File::Which;
@@ -31,7 +32,6 @@ c_signal(+SIGPIPE, 0);
 my @PIPE_FDS = « %*ENV<PIPE_FDS> ».map(*.split(','))».Int;
 my $i = %*ENV<CMD_INDEX>;
 
-#FIXME: handle user specified I/O redirects such as 2>&1 or 2>/dev/null
 
 %*ENV<PIPE_FDS>:delete;
 %*ENV<CMD_INDEX>:delete;
@@ -50,6 +50,8 @@ for @PIPE_FDS -> (Int $r, Int $w) {
     c_close($r) or { c_perror("Failed closing pipe FD (read): $r"); die }
     c_close($w) or { c_perror("Failed closing pipe FD (write): $w"); die }
 }
+
+#FIXME: handle user specified I/O redirects.
 
 my $prog = which(@*ARGS[0]) // exit 127;
 exec $prog, |@*ARGS[1..*];

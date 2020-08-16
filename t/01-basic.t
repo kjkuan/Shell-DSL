@@ -17,7 +17,7 @@ shell {
     is .pwd, $*HOME;
 
     is .bash(«-c 'echo $SECRET'», :SECRET<abc123>), 'abc123';
-    is .bash(«-c 'echo line1; echo line2 >&2'»).(:stderr), "line1\nline2";
+    is .bash(«-c 'echo line1; echo line2 >&2'», (:2to1)).(), "line1\nline2";
 
     my $cmd = .bash(«-c 'echo blah blah blah; exit 1'»);
     dies-ok $cmd;
@@ -57,6 +57,13 @@ shell {
         |> .md5sum
         |> .cut(«-d' ' -f1»)
        ).capture, '06677e1754007e6bf84b1415fdc28e5c';
+
+    dies-ok { .echo('hello world') |> .grep('raku') |> .cat };
+    lives-ok { shell(:!pipefail, { .echo('hello world') |> .grep('raku') |> .cat }) };
+
+    LEAVE {
+        .find: «/tmp -maxdepth 1 -mindepth 1 -name "$name*" -delete»; 
+    }
 }
 
 done-testing;

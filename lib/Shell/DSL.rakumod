@@ -2,155 +2,61 @@ use v6.d;
 unit module Shell::DSL:ver<0.0.1>:auth<Jack Kuan (kjkuan@gmail.com)>;
 
 =begin pod
+=NAME B<Shell::DSL> - Run and pipe commands from one to another like you would in Bash.
 
-=head1 NAME
-Shell::DSL - Run commands and pipe from one to another like you would in a command shell.
+=DESCRIPTION
+C<Shell::DSL> is a module that provides a shell-like experience for running external
+commands and redirecting their I/O's. A command's standard output can be captured, and
+commands can be connected to form a pipeline easily.
 
+B<NOTE:> This module is not thread-safe.
 
-=head1 SYNOPSIS
+B<Caveat:> Although an implementation detail, this module currently depends on Bash
+to connect the pipes and to set up user specified I/O redirections for sub processes.
 
+=SYNOPSIS
 =begin code :lang<perl6>
-
 use Shell::DSL;
-
-# The &shell built-in can now be passed a Callable instance (e.g., a block),
-# which will be passed a CommandShell instance that can be used to invoke
-# external commands.
-#
-# Any method name caught by CommandShell.FALLBACK creates a Command instance
-# that captures the command to run, its arguments, as well as the
-# environment variables (default to %*ENV at the command creation time).
-#
-shell {
-    # A command instance, when sunk, runs the command. Running a command
-    # returns the command instance too. The command instance tracks the pid
-    # exit status of the command run. 
-    .pwd;
-
-    # Command arguments can be passed to the command as positional arguments.
-    .ls: '-la'; 
-
-    # Any named arguments will be set as environment variables for the command.
-    .bash: <-c echo "$GREETING">, :GREETING<Hello>;
-
-    # A sunk command instance throws an exception if it exited with a non-zero status.
-    .bash: <exit 123>;    # exception
-
-    # Evaluating a command in a boolean context runs it if it hasn't been run,
-    # and returns True if it exited successfully or False, otherwise.
-    say "Failed with exit code = {.rc}" unless .bash(<exit 123>);
-
-    # You can also run a command explicitly via its 'run' method.
-    my $cmd = .echo('Hello').run;
-    say $cmd.rc;  # 0 (exit status)
-    say +$cmd;    # same thing
-
-    # Evaluating a command in a numeric context runs it if it hasn't been run,
-    # and returns the exit code of the run.
-    say 'success' if .echo('hello') == 0;
-
-    # A command's STDOUT can be captured like this:
-    my $iam = .whoami.capture;
-
-    # Alternatively, you can also capture by calling the command.
-    # Hint: The '()' looks like it's capturing something.
-    $iam = .whoami.();
-
-    # Evaluating a command in a string context runs and returns the captured
-    # standard output.
-    say "It's me!" if .whoami.tc eq 'Raku';
-
-    # To capture the STDERR, you'll need to redirect it to STDOUT like this:
-    .docker(<logs some_container>).(:stderr);  
-
-    # Capturing, by default, chomps the trailing newline. Therefore:
-    .echo('hello') eq 'hello';
-
-    # To keep the trailing newline:
-    .echo('hello', :!chomp) eq "hello\n";
-
-    # Moreover, capturing, by default, checks the command exit status and throws
-    # an exception if the command has failed.
-    say .bash(<-c 'echo hello; exit 1'>).();  # You will get an exception.
-
-    # If you only want the captured output and don't care about exit status
-    # then you can disable the check like this:
-    my $greeting-cmd = .bash(<-c 'echo hello; exit 1'>, :!check);
-    my $greeting = $greeting-cmd.();
-    say $greeting;         # hello
-    say $greeting-cmd.rc;  # 1
+my @words;
+shell :!pipefail, {
+    .curl(<-fsSL https://en.wikipedia.org/wiki/Special:Random>)
+      |> .xmllint(«--html --xpath '//*[name()!="script"]/text()' -», (:w2</dev/null>))
+      |> .tr(<-cs A-Za-z  \n>)
+      |> .tr(<A-Z a-z>)
+      |> .sort
+      |> .uniq('-c')
+      |> .sort('-rn')
+      |> .head('-30')
+      |> pb({
+          for .lines {
+              my $match = $_ ~~ /\s* \d+ ' ' (\w+)$/;
+              next if !$match;
+              @words.push: $match[0];
+              .put;
+          }
+      })
+      |> .nl;
 }
-
-# It's also possible to pipe from one command to another.
-shell {
-    # 'cd' is a "built-in" method of the Shell class that changes
-    # the invocation directory of external commands.
-    .cd: $*HOME;
-
-    # A pipe is represented with the infix operator: '|>'
-    .ls('-la') |> .grep('.raku$') |> wc('-l');
-
-    # You can pipe an external command to or from a block as well.
-    .find('.')
-      |> pb({ .put for .lines.grep(/raku/) })
-      |> .sort('-r');
-
-    # Notice that blocks within a pipeline needs to be wrapped with &pb, which
-    # creates a PipeBlock instance from the block, so it can be used with '|>'.
-    #
-    # In the first block above, .lines reads from $*IN, which in turn reads
-    # from the output of 'find'. The .put writes to $*OUT, which in turn writes
-    # to the pipe from which 'sort' reads from.
-
-    # The output of a pipeline is the standard output of the last command in
-    # the pipeline, and you can capture it too:
-    my $result = (
-        .find('.')
-          |> pb({ .put for .lines.grep(/raku/) })
-          |> .sort('-r')
-       ).capture;
-
-    # Alternatively, you can pipe it to another block and then read the lines
-    # into an array like this:
-    my @result;
-    .find('.')
-      |> pb({ .put for .lines.grep(/raku/) })
-      |> .sort('-r')
-      |> pb({ @result = .lines });
-}
-
-shell {
-    my $pkg = <https://rakudo.org/dl/rakudo/rakudo-moar-2020.07-01-linux-x86_64.tar.gz>;
-    my $file = $pkg.IO.basename;
-    .curl($pkg) > $file;
-    .tar: « -xzvf "$file" »;
-}
-
-
+put();
+my $i = (^@words).pick;
+say "The word, '@words[$i]', is No. {$i+1} in the list.";
 =end code
 
-=head1 DESCRIPTION
+See I<examples/> for more usage examples.
 
-C<Shell::DSL> is a module that provides a shell-like experience for running external
-commands and redirecting their I/O. A command's standard output can be captured, and
-command pipelines can be form easily.
-
-=head1 AUTHOR
-
-Jack Kuan <kjkuan@gmail.com>
+=AUTHOR Jack Kuan <kjkuan@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
-
 Copyright 2020 Jack Kuan
 
 This library is free software; you can redistribute it and/or modify it under the Artistic License 2.0.
-
 =end pod
+
 
 #FIXME: This is not thread-safe. Does it need to be?
 
 #TODO:
-#  - allow I/O redirections to/from files or pathes  with <, >, <<, >> 
+#  - allow I/O redirections to/from files or pathes  with <, >, >>, <, <<<
 
 
 use NativeCall;
@@ -199,33 +105,52 @@ class Proc::Async::SyncWriter is IO::Handle is export {
 
 
 class Command { ... }
+class Pipeline { ... }
+
 class CommandError is Exception is export {
-    has Command $.command;
+    has $.command of Command;
     method message {
-        "Command: {$!command.raku} failed with exit code {$!command.rc}";
+        "Command: {$!command.raku} failed with exit code {
+            $!command ~~ Pipeline:D ?? $!command[*]».rc.raku !! $!command.rc
+        }";
     }
 }
 
-class Pipeline { ... }
-
+#| A `Command:D` captures all the info (path, arguments, environment variables..., etc.)
+#| needed to execute an external command. A command's PID and exit status are also
+#| stored in the `Command:D` at the end of its execution.
+#|
+#| A `Command:D` is usually created and executed once, usually on the spot, or as part of
+#| a command `Pipeline:D`. There are a few ways to execute a command:
+#|
+#| 1. By sinking a `Command:D`.
+#| 2. By calling its `run` method directly.
+#| 3. By calling its `capture` method directly.
+#| 4. By evaluating a `Command:D` in a boolean context.
+#| 5. By evaluating a `Command:D` in a string context.
+#| 6. By evaluating a `Command:D` in a numeric context.
+#|
 class Command does Callable is export {
-    has $.path of Str:D is required;
-    has @.args of Str:D = ();
-    has %.envs is Map is required;
-    has $.dir  of IO::Path = $*CWD;
-    has $.io-redirects of Str;    # FIXME: arbitrary FD redirects not implemented yet...
+    has $.path of Str:D is required;  #= Path to the external command.
+    has @.args of Str:D = ();         #= Arguments to be passed to the command.
+    has %.envs is Map is required;    #= Environment variables for the command.
+    has $.dir  of IO::Path = $*CWD;   #= Directory from which to execute the command from.
+    has @.redirects is List;
+    #= I/O redirection spec, which is a list of `Pair`s, each denotes a redirection.
 
-    has $!rc  of Int;  # exit code combined with signal number of the last run.
-    has $.pid of Int;  # of the last run.
+    has $!rc  of Int;  # Exit code combined with signal number of the last run.
+    has $.pid of Int;  # Process ID of the last run.
 
-    #| The Pipeline this command is part of.
-    has $.pipeline of Pipeline;
+    has $.pipeline of Pipeline;       #= The Pipeline instance this command is part of.
     has $!async-proc of Proc::Async;
 
-    method new(*@ (Str:D $path, *@args), Str :$io-redirects) {
-        self.bless(:$path, :@args, :$io-redirects)
+    method new(*@ (Str:D $path, *@args), :@redirects=()) {
+        self.bless(:$path, :@args, :@redirects)
     }
-    submethod BUILD(:$!path, :@!args, :$!io-redirects) { %!envs := %*ENV.Map }
+    submethod BUILD(:$!path, :@!args, :@redirects) {
+        %!envs := %*ENV.Map;
+        @!redirects := @redirects.List;
+    }
 
     method gist(--> Str:D) { self.defined ?? "$!path @!args[*]" !! nextsame }
     method raku(--> Str:D) { self.defined ?? 'Command.new' ~ ($!path, |@!args).raku !! self.^name }
@@ -236,46 +161,72 @@ class Command does Callable is export {
         $!rc += $proc.signal + 128 if $proc.signal;
     }
 
+    #| The exit status of the command's last execution.
+    #| Greater than 128 means it's been killed by a signal, whose number you can get
+    #| by subtracting 128 from the returned exit code.
     method rc(--> Int:D) {
         $!rc // fail "No exit code; command: {self.gist} has not yet been run!";
     }
 
-    #| Run and return exit code.
+    #| Run the command and wait for it to exit.
     method run(--> Command:D) {
         die "Invalid operation! Instead, run the pipeline the command is part of." if defined $!pipeline;
-        my $proc = run($!path, @!args, :env(%!envs), :cwd($!dir));
+        my $proc = await Proc::Async.new(
+            @!redirects ?? %?RESOURCES<cmd-exec.sh>.absolute.IO !! Empty,
+            $!path, @!args
+        ).start(
+            :ENV(%!envs, @!redirects ?? REDIRECTS => ~translate-redirects(@!redirects) !! Empty),
+            :cwd($!dir)
+        );
         self!track-last-status($proc);
         return self;
     }
 
-    #| Run and return captured STDOUT (text).
+    #| Run the command and return captured STDOUT (text).
     method capture(
-        Bool:D :$stderr=False,
+        Bool:D :$chomp=True,
         Bool:D :$check=True,
-        Str:D :$encoding='UTF-8',
+        Str:D :$encoding='utf8',
         --> Str:D
     ) {
         die "Operation not allowed! Instead, capture the pipeline the command is part of." if defined $!pipeline;
-        my $proc = Proc.new(:out, :merge($stderr), :!bin, :!chomp, :enc($encoding));
-        $proc.spawn($!path, @!args, :env(%!envs), :cwd($!dir));
-        my $output = $proc.out.slurp(:close).chomp;
+        my $proc = Proc::Async.new(
+            @!redirects ??  %?RESOURCES<cmd-exec.sh>.absolute.IO !! Empty,
+            $!path, @!args,
+            :enc($encoding)
+        );
+        my @blobs;
+        $proc.stdout(:bin).tap: { @blobs.push: $_ };
+        $proc = await $proc.start(
+            :ENV(%!envs, @!redirects ?? REDIRECTS => ~translate-redirects(@!redirects) !! Empty),
+            :cwd($!dir)
+        );
+        my $output = Blob[byte].new(@blobs».list.flat).decode($encoding);
         self!track-last-status($proc);
         CommandError.new(:command(self)).throw if $check && $!rc ≠ 0;
-        return $output;
+        return $chomp ?? $output.chomp !! $output;
     }
-    method CALL-ME(Callable:D: |c)   { self.capture(|c) }
-    method Str(Command:D: --> Str:D) { self.capture     }
 
+    #| Same as `capture`.
+    method CALL-ME(Callable:D: |c) { self.capture(|c) }
+
+    #| Same as `capture`, except you can't pass arguments to it.
+    method Str(Command:D: --> Str:D) { self.capture }
+
+    #| Run the command if not already run, wait for it to exit, and return True if
+    #| its exit status is successful; return False otherwise.
     method Bool(--> Bool:D) {
-        self.run if not $!rc.DEFINITE;
+        my $self = self.run if not $!rc.DEFINITE;
         return ! $!rc;
     }
+
+    #| Run the command if not already run, wait for it to exit, and return its exit status.
     method Numeric(--> Int:D) {
-        self.run if not $!rc.DEFINITE;
+        my $self = self.run if not $!rc.DEFINITE;
         return $!rc;
     }
 
-    #| Run for side-effects when sunk.
+    #| Run the command if not already run. Throws a `CommandError` exception if the command failed.
     method sink(--> Nil) {
         my $self = self.run if not self.started;
         CommandError.new(:command(self)).throw if !self;
@@ -283,9 +234,17 @@ class Command does Callable is export {
 
 ## --- Currently these are used by Pipeline to set up I/O redirections
 ##     and to start the command asynchronously.
-## --- These methods should be considered "protected" rather than public.
 ##
+## These methods should be considered "protected" rather than public.
+##
+## Even though it's possible to declare 'trusts Pipeline;' and
+## make these private but accessible to Pipeline, it seems to be more
+## trouble than its worth.
+
+    # Protected implementation detail; do not use.
     method add-to-pipeline(Pipeline:D $p --> Nil) { $!pipeline = $p }
+
+    # Protected implementation detail; do not use.
     method async-proc(IO::Path $wrapper?, *%opts --> Proc::Async:D){
         return $!async-proc // do {
             my @cmd = $wrapper || Empty;
@@ -293,13 +252,19 @@ class Command does Callable is export {
             $!async-proc = Proc::Async.new(@cmd, |%opts);
         }
     }
+
+    # Protected implementation detail; do not use.
     method stdout(:$bin --> Proc::Async::Pipe:D) { self.async-proc.stdout(:$bin) }
+
+    # Protected implementation detail; do not use.
     method start(Hash() :$ENV is raw, *%opts --> Promise:D) {
         start {
             my $proc = await self.async-proc.start(:cwd($!dir), |%opts, :ENV(%!envs, $ENV));
             self!track-last-status($proc);
         }
     }
+
+    # Protected implementation detail; do not use.
     method started(-->Bool:D) { so ($!async-proc && $!async-proc.started) }
 ## ---------------------------------------------------------------------------
 }
@@ -308,30 +273,29 @@ class PipeBlock { ... }
 subset Pipeable of Any is export where Command|PipeBlock;
 #FIXME: Should Pipeable be a role instead?
 
-class Pipeline is Command is export {
-    has @!parts is required of Pipeable:D;
+class Pipeline is Command does Positional is export {
+    has @!parts is required of Pipeable:D handles('elems', 'AT-POS', 'EXISTS-POS');
     has @!output;  # pipeline output
 
     method new(*@parts where { $_ > 1 && $_.all ~~ Pipeable:D }) {
         for @parts {
             .started && die "Command: {$_} has been run! It can't be part of a pipeline.";
         }
-        self.bless(:path<pipeline>, :io-redirects(Str), :@parts);
+        self.bless(:path<pipeline>, :@parts);
     }
 
     submethod BUILD(:@!parts) { .add-to-pipeline(self) for @!parts }
-    method postcircumfix:<[ ]>(Int:D $i --> Pipeable) { return @!parts[$i] }
 
     method gist(--> Str:D) { self.defined ?? @!parts».gist.join(' |> ') !! nextsame }
     method raku(--> Str:D) { self.defined ?? @!parts».raku.join(' |> ') !! self.^name }
 
     method run(Bool :$capture, Bool :$merge --> Command:D) {
-        #| Turn "{ c1 } | c2 | c3 | c4 | { c5 }" into:  [c1, [c2, c3, c4], c5]
-        #| where "{ c1 }" and "{ c5 }" are PipeBlock's and c2, c3, and c4 are Command's.
-        #|
-        #| We call [c2, c3, c4] an external segment of the pipeline because it's
-        #| the part of the pipeline where data flow externally between the commands.
-        #|
+        # Turn "{ c1 } | c2 | c3 | c4 | { c5 }" into:  [c1, [c2, c3, c4], c5]
+        # where "{ c1 }" and "{ c5 }" are PipeBlock's and c2, c3, and c4 are Command's.
+        #
+        # We call [c2, c3, c4] an external segment of the pipeline because it's
+        # the part of the pipeline where data flow externally between the commands.
+        #
         my (@pipeline, Command:D @external);
 
         my %external{Command:D} of Bool:D;        # when command is part of an external segment
@@ -339,20 +303,20 @@ class Pipeline is Command is export {
         my %readable{Command:D} of PipeBlock:D;   # when block needs to read from the command
 
         my $p2-index = 1;
-        #= Given iterations of $p1 and $p2 below, e.g., 0,1  1,2  2,3  3,4  4,5
-        #= $p2-index goes like: 1 2 3 4 5
+        # Given iterations of $p1 and $p2 below, e.g., 0,1  1,2  2,3  3,4  4,5
+        # $p2-index goes like: 1 2 3 4 5
 
         for @!parts.rotor(2 => -1) -> ($p1, $p2) {
             given $p1, $p2 {
                 when Command, Command {
-                    #| if at the start of an external segment
+                    # if at the start of an external segment
                     @external.push: $p1 if not @external;
                     @external.push: $p2;
                     %external{$p1} = True;
                     %external{$p2} = True;
                 }
                 when Command, PipeBlock {
-                    #| if at the end of an external segment
+                    # if at the end of an external segment
                     if @external {
                         @pipeline.push: @external.clone;
                         @external = [];
@@ -376,7 +340,6 @@ class Pipeline is Command is export {
         @pipeline.push: @external if @external;
 
         my $pipe-exec = %?RESOURCES<pipe-exec.sh>.absolute.IO;
-        #$pipe-exec.chmod(0o0755) if not $pipe-exec.IO.x;
 
         for @!parts.grep: Command:D -> $cmd {
             # Create Proc::Async for each Command object
@@ -414,44 +377,48 @@ class Pipeline is Command is export {
     }
 
     method capture(
-        Bool:D :$stderr=False,
+        Bool:D :$chomp=True,
         Bool:D :$check=True,
-        Str:D :$encoding='UTF-8',
+        Str:D :$encoding='utf8',
         --> Str:D
     ) {
-        self.run(:capture, :merge($stderr));
+        self.run(:capture);
         my $output = Blob[byte].new(@!output».list.flat).decode($encoding);
         @!output = [];
-        return $output.chomp;
+        return $chomp ?? $output.chomp !! $output;
     }
 
-    method rc(--> Int:D) {
-        self.run if not self.started;
-        return @!parts[*-1].rc;
-    }
+    method rc(--> Int:D) { return @!parts[*-1].rc }
+
     method Bool(--> Bool:D) {
-        self.run if not self.started;
-        return @!parts[*-1].Bool;
-        #FIXME: Add an option to cause returning @!parts.any.Bool here instead.
-        #       i.e., like 'set -o pipefail' in Bash.
+        my $self = self.run if not self.started;
+        if $*PIPEFAIL // True {
+            return @!parts».Bool.all.so;
+        } else {
+            return ! self.rc;
+        }
     }
     method Numeric(--> Int:D) {
-        self.run if not self.started;
+        my $self = self.run if not self.started;
         return @!parts[*-1].Numeric;
     }
 
-## --- These methods should be considered "protected" rather than public.
+    # Protected implementation detail; do not use.
     method async-proc(--> Proc::Async:D) { @!parts[0].async-proc }
+
+    # Protected implementation detail; do not use.
     method stdout(:$bin --> Proc::Async::Pipe:D) { @!parts[*-1].stdout(:$bin) }
+
+    # Protected implementation detail; do not use.
     method start(--> Promise:D) { start self.run }
+
+    # Protected implementation detail; do not use.
     method started(--> Bool:D) { @!parts».started.any.so }
 ## ----------------------------------------------------------------------
 }
 
-# A block or callable that can be used in a pipeline.
-# This is not inherited from Command since it's really different enough
-# that it deserve its own class.
-#
+#| A block or callable that can be used in a pipeline.
+#|
 class PipeBlock is export {
     has &.block;
     has $.input;
@@ -473,8 +440,13 @@ class PipeBlock is export {
 
     method raku { 'pb { … }' }
 
+    # Protected implementation detail; do not use.
     method add-to-pipeline(Pipeline:D $p --> Nil) { $!pipeline = $p }
+
+    # Protected implementation detail; do not use.
     method bind-stdin(Proc::Async::Pipe:D $p) { $!input = $p } #= to read from it in the block
+
+    # Protected implementation detail; do not use.
     method bind-stdout(IO::Handle:D $out) { $!output = $out }  #= to write to it in the block
 
     method start(--> Promise:D) {
@@ -507,23 +479,25 @@ class PipeBlock is export {
         await self.start;
         return self;
     }
-    method result { await $!promise }
 
+    # Protected implementation detail; do not use.
     method started(--> Bool:D) { $!promise.defined }
+
+    method result { await $!promise }
     method rc(--> 0)                   { await $!promise }
     method Bool(PipeBlock:D: --> True) { await $!promise }
     method Numeric(PipeBlock:D: --> 0) { await $!promise }
 }
 
-#| Set up the pipes of the Command's connected via a Pipeline.
-#|
-#| The commands are started asynchronously (via Proc::Async) with the
-#| pipe file descriptors passed over to the sub-processes via an
-#| environment variable. However, the commands are not run directly by
-#| Proc::Async, but rather via a wrapper script that knows about the
-#| file descriptor environment variable, and sets up the I/O redirections
-#| to form the pipeline before exec'ing the actual command.
-#|
+# Set up the pipes of the Command's connected via a Pipeline.
+#
+# The commands are started asynchronously (via Proc::Async) with the
+# pipe file descriptors passed over to the sub-processes via an
+# environment variable. However, the commands are not run directly by
+# Proc::Async, but rather via a wrapper script that knows about the
+# file descriptor environment variable, and sets up the I/O redirections
+# to form the pipeline before exec'ing the actual command.
+#
 sub run-pipeline(Command:D @commands where * > 1) {
     my @pipes;
     my $pipe-fds = [];
@@ -536,7 +510,12 @@ sub run-pipeline(Command:D @commands where * > 1) {
 
     my @promises;
     for @commands.kv -> $i, $cmd {
-        @promises.push: $cmd.start(:ENV(CMD_INDEX => $i, PIPE_FDS => $pipe-fds));
+        @promises.push: $cmd.start(
+            :ENV(CMD_INDEX => $i,
+                 PIPE_FDS  => $pipe-fds,
+                 REDIRECTS => ~translate-redirects($cmd.redirects),
+             )
+        );
     }
     await do .async-proc.ready for @commands;
 
@@ -549,9 +528,43 @@ sub run-pipeline(Command:D @commands where * > 1) {
 }
 
 
+sub sh-quote(Str() $s --> Str:D) {
+    "'{$s.subst("'", Q/'\''/)}'"
+}
+
+# Translate Shell:DSL's Command redirect notation to Bash's notation.
+sub translate-redirects(@redirects) {
+    my %redir-map = (
+        w => '>' ,
+        a => '>>',
+        r => '<'
+    );
+    my @shell-redirects;
+    for @redirects -> $spec (:$key is copy, :$value is copy) {
+        my $match = $key ~~ (/^(w|a|r|to)(\d+)?$/);
+        die "Invalid I/O redirection spec: {$spec.raku}" if !$match;
+
+        my $fd;
+        # Handle shortcut notation for pairs like, :2to1 (to1 => 2)
+        if $key.starts-with('to') {
+            $key = 'w';
+            $fd = $value;
+            $value = $match[1] // 1;
+        } else { # $key is w|a|r
+            $key = $match[0];
+            $fd = $match[1] // ($key eq 'r' ?? 0 !! 1);
+        }
+        my $op = %redir-map{$key} // fail;
+        my $quoted-value = sh-quote $value;
+        @shell-redirects.push: $value ~~ Str ?? "$fd$op$quoted-value" !! "$fd$op&$quoted-value";
+    }
+    return @shell-redirects;
+}
+
+
 class CommandShell is Mu is export {
-    #= We inherit from Mu rather than the implicit Any so that more method names are
-    #= available via the FALLBACK mechanism. Particularly, 'grep' can be fallback on.
+    # We inherit from Mu rather than the implicit Any so that more method names are
+    # available via the FALLBACK mechanism. Particularly, 'grep' can be fallback on.
 
     has $.dir of IO::Path:D = $*CWD;
     has %.env of Str:D      = %*ENV;
@@ -571,21 +584,23 @@ class CommandShell is Mu is export {
         %!env ,= %env-vars;
     }
 
-    method FALLBACK(Str:D $path, *@args, *%envs, Str :$fd) {
+    method FALLBACK(Str:D $path, *@args, *%envs) {
+        my @redirects = @args.grep: Pair;
+        @args = @args.grep(* !~~ Pair) if @redirects;
+        @args := @args».Str;
         temp $*CWD = $!dir;
         temp %*ENV = %!env, %envs;
-        @args := @args».Str;
-        Command.new($path, @args, :io-redirects($fd));
+        Command.new($path, @args, :@redirects);
     }
 }
 
 
-multi sub shell(&block, |c) is export { block(CommandShell.new(|c)) }
+multi sub shell(&block, Bool:D :$pipefail=True, |c) is export {
+    my $*PIPEFAIL = $pipefail;
+    sink block(CommandShell.new(|c));
+}
 sub pb(&block --> PipeBlock:D) is export { PipeBlock.new(&block) }
 sub infix:«|>»(*@blocks --> Pipeline:D) is assoc<list> is export { Pipeline.new(@blocks) }
-
-
-
 
 
 # vim: syntax=perl6 ft=perl6
