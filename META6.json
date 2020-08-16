@@ -19,7 +19,7 @@
     "pipe-exec.sh",
     "cmd-exec.sh"
   ],
-  "source-url" : "",
+  "source-url" : "https://github.com/kjkuan/Shell-DSL.git",
   "tags" : [
     "shell",
     "DSL",
