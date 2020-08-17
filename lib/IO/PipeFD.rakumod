@@ -1,7 +1,9 @@
 unit module IO::PipeFD:ver<0.0.1>:auth<Jack Kuan (kjkuan@gmail.com)>;
 
 use NativeCall;
-use Fcntl;   # Need to use this fork: https://github.com/jonathanstowe/perl6-Fcntl
+use Fcntl:auth<github:kjkuan>;
+#   ^^^^^ It's a fork (changing to :auth<github:kjkuan>) of
+#   https://github.com/jonathanstowe/perl6-Fcntl that I'm distributing.
 
 sub c_read(int32 $fd, Pointer $buf, size_t $count --> ssize_t) is native is symbol('read') { * }
 sub c_write(int32 $fd, Pointer $blob, size_t $count --> ssize_t) is native is symbol('write') { * }

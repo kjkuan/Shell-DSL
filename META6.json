@@ -5,7 +5,7 @@
   ],
   "build-depends" : [ ],
   "depends" : [
-    "Fcntl"
+    "Fcntl:auth<github:kjkuan>"
   ],
   "description" : "Run commands and pipe from one to another like you would in a Unix command line shell.",
   "license" : "Artistic-2.0",

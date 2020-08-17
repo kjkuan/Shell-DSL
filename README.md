@@ -11,15 +11,9 @@ be captured, and commands can be connected to form a pipeline easily.
 **NOTE:** This module is not thread-safe.
 
 **Caveat:** I've only tested it on Ubuntu, but it should work on any Unix-like
-system with the right native library dependencies; however, the module
-currently depends on the `Fcntl` Raku module, which needs to be installed
-manually with:
-
-    zef install -f Fcntl https://github.com/jonathanstowe/perl6-Fcntl
-
-Moreover, although an implementation detail, this module currently depends on
-Bash to connect the pipes and to set up user specified I/O redirections for sub
-processes.
+system with the right native library dependencies. Moreover, although an
+implementation detail, this module currently depends on Bash to connect the
+pipes and to set up user specified I/O redirections for sub processes.
 
 SYNOPSIS
 ========
