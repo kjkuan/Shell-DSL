@@ -56,7 +56,9 @@ This library is free software; you can redistribute it and/or modify it under th
 #FIXME: This is not thread-safe. Does it need to be?
 
 #TODO:
-#  - allow I/O redirections to/from files or pathes  with <, >, >>, <, <<<
+#  - allow I/O redirections to/from IO::Path:D  with |>, |>>, <|
+#  - allow redirecting from a string with <<<
+#  - allow I/O redirection overrides when calling .run and .capture ?
 
 
 use NativeCall;
@@ -135,7 +137,7 @@ class Command does Callable is export {
     has @.args of Str:D = ();         #= Arguments to be passed to the command.
     has %.envs is Map is required;    #= Environment variables for the command.
     has $.dir  of IO::Path = $*CWD;   #= Directory from which to execute the command from.
-    has @.redirects is List;
+    has @.redirects of Pair:D;
     #= I/O redirection spec, which is a list of `Pair`s, each denotes a redirection.
 
     has $!rc  of Int;  # Exit code combined with signal number of the last run.
@@ -147,9 +149,8 @@ class Command does Callable is export {
     method new(*@ (Str:D $path, *@args), :@redirects=()) {
         self.bless(:$path, :@args, :@redirects)
     }
-    submethod BUILD(:$!path, :@args, :@redirects) {
+    submethod BUILD(:$!path, :@args, :@!redirects) {
         @!args = @args».Str;
-        @!redirects := @redirects.List;
         %!envs := %*ENV.Map;
     }
 
@@ -170,6 +171,7 @@ class Command does Callable is export {
     method raku(--> Str:D) { self.defined ?? 'Command.new' ~ ($!path, |@!args).raku !! self.^name }
 
     method args { return @!args.List }
+    method redirects { return @!redirects.List }
 
     method !track-last-status(Proc:D $proc) {
         $!pid = $proc.pid;
@@ -263,7 +265,7 @@ class Command does Callable is export {
     # Protected implementation detail; do not use.
     method async-proc(IO::Path $wrapper?, *%opts --> Proc::Async:D){
         return $!async-proc // do {
-            my @cmd = $wrapper || Empty;
+            my @cmd = $wrapper || (@!redirects ?? %?RESOURCES<cmd-exec.sh>.absolute.IO !! Empty);
             @cmd.append: $!path, |@!args;
             $!async-proc = Proc::Async.new(@cmd, |%opts);
         }
@@ -275,7 +277,10 @@ class Command does Callable is export {
     # Protected implementation detail; do not use.
     method start(Hash() :$ENV is raw, *%opts --> Promise:D) {
         start {
-            my $proc = await self.async-proc.start(:cwd($!dir), |%opts, :ENV(%!envs, $ENV));
+            my $proc = await self.async-proc.start(
+                :cwd($!dir), |%opts,
+                :ENV(%!envs, $ENV, @!redirects ?? REDIRECTS => ~translate-redirects(@!redirects) !! Empty),
+            );
             self!track-last-status($proc);
         }
     }

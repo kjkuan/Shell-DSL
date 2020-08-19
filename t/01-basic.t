@@ -13,6 +13,13 @@ shell {
     ok .cd: '/tmp';
     ok .test: «-e "{$tmpfile.IO.basename}"»;
 
+    .echo('hello', (:w($tmpfile)));
+    .echo('world', (:a($tmpfile)));
+    is .cat((:r($tmpfile))), "hello\nworld";
+
+    .echo«"abc\ndef\nghi"»  |> .cat |> pb({ .put for .lines}) |> .sed((:w($tmpfile)), 's/^/x /');
+    is .cat((:r($tmpfile))) |> .tr(<x z>), "z abc\nz def\nz ghi";
+
     ok .cd;
     is .pwd, $*HOME;
 
