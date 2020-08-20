@@ -15,9 +15,10 @@ shell {
 
     .echo('hello', (:w($tmpfile)));
     .echo('world', (:a($tmpfile)));
-    is .cat((:r($tmpfile))), "hello\nworld";
+    sink .echo('!!') |>> $tmpfile.IO;   #FIXME: why sink is required here?
+    is .cat((:r($tmpfile))), "hello\nworld\n!!";
 
-    .echo«"abc\ndef\nghi"»  |> .cat |> pb({ .put for .lines}) |> .sed((:w($tmpfile)), 's/^/x /');
+    .echo«"abc\ndef\nghi"»  |> .cat |> pb({ .put for .lines}) |> .sed('s/^/x /') |> $tmpfile.IO;
     is .cat((:r($tmpfile))) |> .tr(<x z>), "z abc\nz def\nz ghi";
 
     ok .cd;
@@ -69,7 +70,9 @@ shell {
     lives-ok { shell(:!pipefail, { .echo('hello world') |> .grep('raku') |> .cat }) };
 
     LEAVE {
-        .find: «/tmp -maxdepth 1 -mindepth 1 -name "$name*" -delete»; 
+        if $name {
+            .find: «/tmp -maxdepth 1 -mindepth 1 -name "$name*" -delete»;
+        }
     }
 }
 

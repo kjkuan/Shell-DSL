@@ -57,6 +57,8 @@ This library is free software; you can redistribute it and/or modify it under th
 
 #TODO:
 #  - allow I/O redirections to/from IO::Path:D  with |>, |>>, <|
+#    - Make it work for Command:D and Pipeline:D
+#    - Make it work for PipeBlock:D
 #  - allow redirecting from a string with <<<
 #  - allow I/O redirection overrides when calling .run and .capture ?
 
@@ -319,6 +321,9 @@ class Pipeline is Command does Positional is export {
 
     #| Run the pipeline and wait for it to exit.
     method run(Bool :$capture, Bool :$merge --> Command:D) {
+        if $capture && @!parts[*-1] !~~ Command:D {
+            die "Capturing a pipeline whose last command is a PipeBlock is not supported, yet.";
+        }
         # Turn "{ c1 } | c2 | c3 | c4 | { c5 }" into:  [c1, [c2, c3, c4], c5]
         # where "{ c1 }" and "{ c5 }" are PipeBlock's and c2, c3, and c4 are Command's.
         #
@@ -384,18 +389,16 @@ class Pipeline is Command does Positional is export {
                 my $out = Proc::Async::SyncWriter.new(:proc($cmd.async-proc));
                 .bind-stdout($out);
             }
-            # if we are capturing the pipeline output and $cmd is the last
-            # command of the pipeline then save its stdout for reading later.
-            if $capture and $cmd === @!parts[*-1] {
-                @!output = [];
-                if $merge {
-                    $cmd.stdout(:bin).tap: -> $blob { @!output.push: $blob };
-                } else {
-                    $cmd.async-proc.Supply(:bin).tap: -> $blob { @!output.push: $blob };
-                }
+        }
+        if $capture {
+            # if capturing the pipeline then save the last command's stdout for reading later.
+            @!output = [];
+            if $merge {
+                @!parts[*-1].stdout(:bin).tap: -> $blob { @!output.push: $blob };
+            } else {
+                @!parts[*-1].async-proc.Supply(:bin).tap: -> $blob { @!output.push: $blob };
             }
         }
-
         my @promises;
         for @pipeline {
             when Array:D { @promises.append: run-pipeline($_) }
@@ -447,6 +450,9 @@ class Pipeline is Command does Positional is export {
         return @!parts[*-1].Numeric;
     }
 
+# #FIXME: These should match parent Command class's method signatures.
+# However, currently doing Pipeline:D |> Command:D probably won't work.
+#
     # Protected implementation detail; do not use.
     method async-proc(--> Proc::Async:D) { @!parts[0].async-proc }
 
@@ -471,6 +477,7 @@ class PipeBlock is export {
 
     has $.encoding of Str;
     has $.chomp of Bool;
+#    has @.redirects of Pair:D;
 
     #| You should create a `PipeBlock:D` by calling the `&pb` sub with a `Block`.
     method new(&block, Bool :$bin, Str :$enc, Bool:D :$chomp=True) {
@@ -481,6 +488,20 @@ class PipeBlock is export {
         X::IO::BinaryAndEncoding.new.throw if $bin && $enc;
         $!encoding = $bin ?? Nil !! $enc // 'utf8';
     }
+
+#    method redirects { @!redirects.List }
+#    method !input is rw { $!input }
+#    method !output is rw { $!output }
+#    method !pipeline is rw { $!pipeline }
+#    method !promise is rw { $!promise }
+#    method clone(*%_) {
+#        my $clone = callwith(|%_);
+#        $clone!input = Nil;
+#        $clone!output  = Nil;
+#        $clone!pipeline = Nil;
+#        $clone!promise = Nil;
+#        return $clone;
+#    }
 
     method raku { 'pb { … }' }
 
@@ -643,7 +664,23 @@ multi sub shell(&block, Bool:D :$pipefail=True, |c) is export {
     sink block(CommandShell.new(|c));
 }
 sub pb(&block --> PipeBlock:D) is export { PipeBlock.new(&block) }
-sub infix:«|>»(*@blocks --> Pipeline:D) is assoc<list> is export { Pipeline.new(@blocks) }
+
+sub infix:«|>»(*@operands) is assoc<list> is export {
+    if @operands[*-1] ~~ IO::Path:D {
+        if @operands[*-2] ~~ Command:D {
+            my $path = @operands.pop;
+            @operands.push: @operands.pop.clone(redirects => :w(~$path));
+        } else {
+            die "Redirecting PipeBlock to files not supported, yet!";
+        }
+    }
+    return @operands[0] if @operands == 1;
+    return Pipeline.new(@operands);
+}
+
+sub infix:«|>>»(Command:D $cmd, IO::Path:D $path --> Command:D) is assoc<non> is tighter(&infix:«|>») is export {
+    $cmd.clone(redirects => :a(~$path));
+}
 
 multi sub postcircumfix:<{ }>(Command:D $cmd, $arg --> Command:D) is export { $cmd.clone(args => $arg) }
 multi sub postcircumfix:<{ }>(Command:D $cmd, @args --> Command:D) is export { $cmd.clone(args => @args) }
