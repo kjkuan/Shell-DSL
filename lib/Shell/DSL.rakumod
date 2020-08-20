@@ -160,8 +160,8 @@ class Command does Callable is export {
     method !pid is rw { $!pid }
     method !async-proc is rw { $!async-proc }
     method !pipeline is rw { $!pipeline }
-    method clone(*%_) {
-        my $clone = callwith(|%_);
+    method clone(*%_ --> Command:D) {
+        my $clone := callwith(|%_);
         $clone!rc = Nil;
         $clone!pid = Nil;
         $clone!pipeline = Nil;
@@ -314,7 +314,7 @@ class Pipeline is Command does Positional is export {
     submethod BUILD(:@!parts) { .add-to-pipeline(self) for @!parts }
 
     #FIXME: not sure how cloning a PipeBlock would work
-    method clone(*%_) { nextwith(:parts(@!parts».clone), |%_) }
+    method clone(*%_ --> Pipeline:D) { nextwith(:parts(@!parts».clone), |%_) }
 
     method gist(--> Str:D) { self.defined ?? @!parts».gist.join(' |> ') !! nextsame }
     method raku(--> Str:D) { self.defined ?? @!parts».raku.join(' |> ') !! self.^name }
@@ -659,7 +659,7 @@ class CommandShell is Mu is export {
 }
 
 
-multi sub shell(&block, Bool:D :$pipefail=True, |c) is export {
+multi sub shell(&block, Bool:D :$pipefail=True, |c --> Nil) is export {
     my $*PIPEFAIL = $pipefail;
     sink block(CommandShell.new(|c));
 }

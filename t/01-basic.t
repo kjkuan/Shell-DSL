@@ -15,7 +15,7 @@ shell {
 
     .echo('hello', (:w($tmpfile)));
     .echo('world', (:a($tmpfile)));
-    sink .echo('!!') |>> $tmpfile.IO;   #FIXME: why sink is required here?
+    .echo('!!') |>> $tmpfile.IO;
     is .cat((:r($tmpfile))), "hello\nworld\n!!";
 
     .echo«"abc\ndef\nghi"»  |> .cat |> pb({ .put for .lines}) |> .sed('s/^/x /') |> $tmpfile.IO;
