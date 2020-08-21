@@ -15,11 +15,11 @@ shell {
 
     .echo('hello', (:w($tmpfile)));
     .echo('world', (:a($tmpfile)));
-    .echo('!!') |>> $tmpfile.IO;
+    .echo('!!') |> .cat |>> $tmpfile.IO;
     is .cat((:r($tmpfile))), "hello\nworld\n!!";
 
     .echo«"abc\ndef\nghi"»  |> .cat |> pb({ .put for .lines}) |> .sed('s/^/x /') |> $tmpfile.IO;
-    is .cat((:r($tmpfile))) |> .tr(<x z>), "z abc\nz def\nz ghi";
+    is .cat <| $tmpfile.IO |> .tr<x z> , "z abc\nz def\nz ghi";
 
     ok .cd;
     is .pwd, $*HOME;

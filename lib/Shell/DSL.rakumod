@@ -56,10 +56,8 @@ This library is free software; you can redistribute it and/or modify it under th
 #FIXME: This is not thread-safe. Does it need to be?
 
 #TODO:
-#  - allow I/O redirections to/from IO::Path:D  with |>, |>>, <|
-#    - Make it work for Command:D and Pipeline:D
-#    - Make it work for PipeBlock:D
 #  - allow redirecting from a string with <<<
+#  - allow user specified I/O redirections on PipeBlock:D
 #  - allow I/O redirection overrides when calling .run and .capture ?
 
 
@@ -679,8 +677,19 @@ sub infix:«|>»(*@operands) is assoc<list> is export {
 }
 
 sub infix:«|>>»(Command:D $cmd, IO::Path:D $path --> Command:D) is assoc<non> is tighter(&infix:«|>») is export {
+    if $cmd ~~ Pipeline:D {
+        die "Can't redirect (|>>) STDOUT of a pipeline! Please do so on the last command in the pipeline instead."
+    }
     $cmd.clone(redirects => :a(~$path));
 }
+
+sub infix:«<|»(Command:D $cmd, IO::Path:D $path --> Command:D) is assoc<non> is tighter(&infix:«|>») is export {
+    if $cmd ~~ Pipeline:D {
+        die "Can't redirect (|>) STDIN of a pipeline! Please do so on the first command in the pipeline instead."
+    }
+    $cmd.clone(redirects => :r(~$path));
+}
+
 
 multi sub postcircumfix:<{ }>(Command:D $cmd, $arg --> Command:D) is export { $cmd.clone(args => $arg) }
 multi sub postcircumfix:<{ }>(Command:D $cmd, @args --> Command:D) is export { $cmd.clone(args => @args) }
