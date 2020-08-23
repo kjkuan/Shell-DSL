@@ -76,6 +76,9 @@ shell {
     #
     #   # Redirect standard input to read from /tmp/data.txt
     #   (:r</tmp/data.txt>)  # Bash: < /tmp/data.txt
+    #
+    # Shortcuts exist for redirecting standard output to a file or for
+    # redirecting standard input from a file. See pipeline.raku for examples.
 
     # Capturing, by default, also checks the command exit status and throws
     # an exception if the command has failed.
