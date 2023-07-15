@@ -5,8 +5,9 @@ NAME
 DESCRIPTION
 ===========
 `Shell::DSL` is a module that provides a shell-like experience for running
-external commands and redirecting their I/O's. A command's standard output can
-be captured, and commands can be connected to form a pipeline easily.
+external commands (without shell's interpretation) and redirecting their I/O's.
+A command's standard output can be captured, and commands can be connected to
+form a pipeline easily.
 
 **NOTE:** This module is not thread-safe.
 
@@ -44,4 +45,4 @@ my $i = (^@words).pick;
 say "The word, '@words[$i]', is No. {$i+1} in the list.";
 ```
 
-See [examples/](examples/) for more usage examples.
+See [examples/](https://github.com/kjkuan/Shell-DSL/tree/master/example/) for more usage examples.
