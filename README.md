@@ -45,4 +45,4 @@ my $i = (^@words).pick;
 say "The word, '@words[$i]', is No. {$i+1} in the list.";
 ```
 
-See [examples/](https://github.com/kjkuan/Shell-DSL/tree/master/example/) for more usage examples.
+See [examples/](https://github.com/kjkuan/Shell-DSL/tree/master/examples/) for more usage examples.
