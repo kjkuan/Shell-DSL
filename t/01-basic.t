@@ -79,4 +79,4 @@ shell {
 done-testing;
 
 
-# vim: syntax=perl6 ft=perl6
+# vim: syntax=raku ft=raku

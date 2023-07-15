@@ -17,7 +17,7 @@ pipes and to set up user specified I/O redirections for sub processes.
 
 SYNOPSIS
 ========
-```perl6
+```raku
 use Shell::DSL;
 my @words;
 shell :!pipefail, {

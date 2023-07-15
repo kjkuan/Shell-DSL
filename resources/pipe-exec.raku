@@ -1,5 +1,11 @@
 #!/usr/bin/env raku
 #
+# UPDATE 2023-07-15:
+#   I was trying to see if things have improved, but after making Shell::DSL
+#   call this script instead of 'pipe-exec.sh', running 'zef test .' fails a
+#   test and hangs. So, this is now broken or perhaps it has a bug that's now
+#   uncovered by newer version of Raku.
+#
 # This is implemented after implementing pipe-exec.sh to see how well the idea
 # works with a Raku implementation. Too bad, it's way slower than pipe-exec.sh,
 # so currently it's not used and maintained; however, it's included as a proof
@@ -63,4 +69,4 @@ exit 126 if $errno == EACCES;
 exit 127 if $errno == ENOENT;
 exit 1;
 
-# vim: ft=perl6
+# vim: ft=raku

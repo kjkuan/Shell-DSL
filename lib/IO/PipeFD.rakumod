@@ -1,9 +1,7 @@
 unit module IO::PipeFD:ver<0.0.1>:auth<Jack Kuan (kjkuan@gmail.com)>;
 
 use NativeCall;
-use Fcntl:auth<github:kjkuan>;
-#   ^^^^^ It's a fork (changing to :auth<github:kjkuan>) of
-#   https://github.com/jonathanstowe/perl6-Fcntl that I'm distributing.
+use Fcntl;
 
 sub c_read(int32 $fd, Pointer $buf, size_t $count --> ssize_t) is native is symbol('read') { * }
 sub c_write(int32 $fd, Pointer $blob, size_t $count --> ssize_t) is native is symbol('write') { * }
@@ -76,4 +74,4 @@ class IO::PipeWriteFD is IO::Handle does IO::PipeFD is export {
 }
 
 
-# vim: syntax=perl6 
+# vim: syntax=raku

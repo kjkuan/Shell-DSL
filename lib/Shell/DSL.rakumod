@@ -15,7 +15,7 @@ B<Caveat:> Although an implementation detail, this module currently depends on B
 to connect the pipes and to set up user specified I/O redirections for sub processes.
 
 =SYNOPSIS
-=begin code :lang<perl6>
+=begin code :lang<raku>
 use Shell::DSL;
 my @words;
 shell :!pipefail, {
@@ -275,7 +275,7 @@ class Command does Callable is export {
     method stdout(:$bin --> Proc::Async::Pipe:D) { self.async-proc.stdout(:$bin) }
 
     # Protected implementation detail; do not use.
-    method start(Hash() :$ENV is raw, *%opts --> Promise:D) {
+    method start(Hash() :$ENV is raw = {}, *%opts --> Promise:D) {
         start {
             my $proc = await self.async-proc.start(
                 :cwd($!dir), |%opts,
@@ -640,7 +640,7 @@ class CommandShell is Mu is export {
     #| Change the execution directory for commands run via this Shell instance.
     method cd(IO() $path=$*HOME --> IO::Path:D) {
         fail "Directory '$path' does not exist!" if !$path.d;
-        $!dir = $path.absolute.path;
+        $!dir = $path.absolute.IO;
     }
 
     method export(*%env-vars) {
@@ -694,8 +694,7 @@ sub infix:«<|»(Command:D $cmd, IO::Path:D $path --> Command:D) is assoc<non> i
 multi sub postcircumfix:<{ }>(Command:D $cmd, $arg --> Command:D) is export { $cmd.clone(args => $arg) }
 multi sub postcircumfix:<{ }>(Command:D $cmd, @args --> Command:D) is export { $cmd.clone(args => @args) }
 multi sub postcircumfix:<{ }>(Pipeline:D $cmd, @args --> Command:D) is export { !!! }
-multi sub postcircumfix:<{ }>(Pipeline:D $cmd, @args --> Command:D) is export { !!! }
 
 
 
-# vim: syntax=perl6 ft=perl6
+# vim: syntax=raku ft=raku

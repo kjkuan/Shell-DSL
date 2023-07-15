@@ -91,4 +91,4 @@ shell {
     say $greeting-cmd.rc;         # 1
 }
 
-# vim: syntax=perl6 ft=perl6
+# vim: syntax=raku ft=raku
