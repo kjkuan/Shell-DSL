@@ -1,4 +1,16 @@
 Revision history for Shell-DSL
 
-{{$NEXT}}
+0.0.1:
     - Initial version
+
+0.0.2:
+    - Use the Fcntl from the original author instead of my forked version.
+    - Fix a deprecation warning and a Hash type issue as reported.
+    - Remove a duplicated sub declaration.
+
+0.0.3: 
+    - Use Fez to upload the module, and fix the auth field and other inconsistencies in META6.json.
+
+0.0.4:
+    - Remove versioning and author info from individual modules.
+    - Add revision history.

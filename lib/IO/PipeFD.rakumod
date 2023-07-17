@@ -1,4 +1,4 @@
-unit module IO::PipeFD:ver<0.0.1>:auth<Jack Kuan (kjkuan@gmail.com)>;
+unit module IO::PipeFD;
 
 use NativeCall;
 use Fcntl;

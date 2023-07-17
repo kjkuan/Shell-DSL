@@ -1,5 +1,5 @@
 use v6.d;
-unit module Shell::DSL:ver<0.0.1>:auth<Jack Kuan (kjkuan@gmail.com)>;
+unit module Shell::DSL;
 
 =begin pod
 =NAME B<Shell::DSL> - Run and pipe commands from one to another like you would in Bash.
