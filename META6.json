@@ -1,5 +1,5 @@
 {
-  "auth" : "Jack Kuan (kjkuan@gmail.com)",
+  "auth" : ["zef:kjkuan"],
   "authors" : [
     "Jack Kuan"
   ],
@@ -17,6 +17,7 @@
   },
   "resources" : [
     "pipe-exec.sh",
+    "pipe-exec.raku",
     "cmd-exec.sh"
   ],
   "source-url" : "https://github.com/kjkuan/Shell-DSL.git",
@@ -29,5 +30,5 @@
     "run"
   ],
   "test-depends" : [ ],
-  "version" : "0.0.2"
+  "version" : "0.0.3"
 }
