@@ -1,0 +1,34 @@
+name: test
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  raku:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        raku-version:
+          - "latest"
+          - "2023.08"
+    runs-on: ${{ matrix.os }}
+    env:
+      # Workaround for path length errors during precompilation of longer repo names
+      TMPDIR: /tmp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Raku/setup-raku@v1
+        with:
+          raku-version: ${{ matrix.raku-version }}
+      - name: Run tests and Install
+        run: zef install . --debug
